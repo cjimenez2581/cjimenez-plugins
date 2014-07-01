@@ -1,5 +1,5 @@
 #if (!$entries.isEmpty())
-    
+	#set ($is_signedIn = $themeDisplay.isSignedIn())
     ## BEGIN: READ asset publisher preferences
 
     ## READ Delta
@@ -43,7 +43,15 @@
     </ul>
     
     
-    <script type="text/javascript" src="https://rawgithub.com/asotog/y-commons/master/build/gallery-y-common-infinite-scroll/gallery-y-common-infinite-scroll-min.js"></script>
+    <script type="text/javascript">
+		AUI().applyConfig({
+			modules: {
+				'gallery-y-common-infinite-scroll':{
+					fullpath: '/asset-publisher-infinity-display-theme/js/gallery-y-common-infinite-scroll.js'
+				}
+			}
+		});
+	</script>
 
     <script type="text/javascript">
     AUI().use('gallery-y-common-infinite-scroll', 'datatype-xml', 'transition', function (A) {
@@ -64,25 +72,25 @@
         /* infinite scroll instance */
         var infiniteScroll = new A.InfiniteScroll({
             requestCustomData: function (callback) {
-                Liferay.Service(
-                    {
-                        '$currentEntry = /assetentry/get-entries': {
-                            entryQuery: {
-                                start: this.currentOffset - offset,
-                                end: this.currentOffset,
-                                groupIds: groupIds,
-                                classTypeIds: classTypesIds
-                            },
+				Liferay.Service(
+                {
+                    '$currentEntry = /wrapper-services-portlet.wrapper/get-asset-entries': {
+                        assetEntryQuery: {
+                            start: this.currentOffset - offset,
+                            end: this.currentOffset,
+                            groupIds: groupIds,
+                            classTypeIds: classTypesIds
+                        },
 
-                            '$article = /journalarticle/get-latest-article': {
-                                '@resourcePrimKey': '$currentEntry.classPK'
-                            }
+                        '$article = /wrapper-services-portlet.wrapper/get-latest-article': {
+                            '@resourcePrimKey': '$currentEntry.classPK'
                         }
-                    },
-                    function (entries) {
-                        callback(entries);
                     }
-                );
+                },
+                function (entries) {
+                    callback(entries);
+                }
+           	 );
             },
             container: A.one('ul.images-infinite-grid-view'),
             itemTemplate: itemTemplate,
