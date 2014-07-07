@@ -54,8 +54,11 @@
 	</script>
 
     <script type="text/javascript">
-    AUI().use('gallery-y-common-infinite-scroll', 'datatype-xml', 'transition', function (A) {
-
+    AUI().use('gallery-y-common-infinite-scroll', 'datatype-xml', 'transition', 'liferay-portlet-url', 'aui-io-request', function (A) {
+		var PORTLET_ID = 'velocityserviceportlet_WAR_velocityservicesportlet';
+		var resourceURL = Liferay.PortletURL.createResourceURL();
+		resourceURL.setPortletId(PORTLET_ID);
+		
         /* js configuration */
         var itemTemplate = '<li class="span4"><div class="thumbnail">' +
                                '<img src="{image}" alt="">' +
@@ -67,30 +70,30 @@
                              
         var offset = $config_Delta;
         var groupIds = [$config_Scopes];
-        var classTypesIds = [$config_ClassTypesIds];
-        
+		var classTypesIds = [$config_ClassTypesIds];
+		
         /* infinite scroll instance */
         var infiniteScroll = new A.InfiniteScroll({
             requestCustomData: function (callback) {
-				Liferay.Service(
-                {
-                    '$currentEntry = /wrapper-services-portlet.wrapper/get-asset-entries': {
-                        assetEntryQuery: {
-                            start: this.currentOffset - offset,
-                            end: this.currentOffset,
-                            groupIds: groupIds,
-                            classTypeIds: classTypesIds
-                        },
-
-                        '$article = /wrapper-services-portlet.wrapper/get-latest-article': {
-                            '@resourcePrimKey': '$currentEntry.classPK'
-                        }
-                    }
-                },
-                function (entries) {
-                    callback(entries);
-                }
-           	 );
+			
+				var data = Liferay.Util.ns("_"+PORTLET_ID+"_", {
+					'cmd': 'get-entries',
+                    'start': this.currentOffset - offset,
+					'end': this.currentOffset,
+                    'groupIds': groupIds,
+					'classTypeIds': classTypesIds
+                });
+				A.io.request(resourceURL.toString(),{
+					method: 'GET',
+					dataType: 'json',
+					data: data,
+					on : {
+						success:  function(){
+							var entries = this.get('responseData');
+							callback(entries);
+						}
+					}
+                });
             },
             container: A.one('ul.images-infinite-grid-view'),
             itemTemplate: itemTemplate,
@@ -116,6 +119,7 @@
             console.info('loading');
         });
         infiniteScroll.on('infinite-scroll:finished', function (e) {
+			console.log('infinite-scroll:finished');
             infiniteScroll.get('container').all('li').transition({
                 easing: 'ease-out',
                 duration: 1,

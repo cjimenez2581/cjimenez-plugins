@@ -78,6 +78,7 @@ Y.InfiniteScroll = Y.Base.create('gallery-y-common-infinite-scroll', Y.Base, [],
     },
     
     _processResponse: function(response) {
+    	console.log(response);
         var me = this;
         me.currentOffset += me.get('offset');
         if (response.length > 0) {
