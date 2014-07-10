@@ -116,10 +116,9 @@
         });
         
         infiniteScroll.on('infinite-scroll:loading', function (e) {
-            console.info('loading');
+            
         });
         infiniteScroll.on('infinite-scroll:finished', function (e) {
-			console.log('infinite-scroll:finished');
             infiniteScroll.get('container').all('li').transition({
                 easing: 'ease-out',
                 duration: 1,
@@ -127,7 +126,7 @@
             });
         });
         infiniteScroll.on('infinite-scroll:no-more-results', function (e) {
-            console.info('no-more-results');
+            
         });
     });
     </script>
