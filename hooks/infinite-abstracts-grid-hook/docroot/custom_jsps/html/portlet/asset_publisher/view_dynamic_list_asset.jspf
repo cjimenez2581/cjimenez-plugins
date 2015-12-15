@@ -1,0 +1,195 @@
+<%--
+/**
+ * Copyright (C) 2015 Rivet Logic Corporation. All rights reserved.
+ */
+--%>
+<%--
+/**
+ * Copyright (c) 2000-2013 Liferay, Inc. All rights reserved.
+ *
+ * The contents of this file are subject to the terms of the Liferay Enterprise
+ * Subscription License ("License"). You may not use this file except in
+ * compliance with the License. You can obtain a copy of the License by
+ * contacting Liferay, Inc. See the License for the specific language governing
+ * permissions and limitations under the License, including but not limited to
+ * distribution rights of the Software.
+ *
+ *
+ *
+ */
+--%>
+
+<%-- Rivet Custom Imports --%>
+<%@page import="com.liferay.portal.kernel.json.JSONArray"%>
+<%@page import="com.liferay.portal.kernel.json.JSONObject"%>
+<%@page import="com.liferay.portal.kernel.json.JSONFactoryUtil"%>
+<%-- Rivet Custom Imports --%>
+
+<%
+/** START RIVET LOGIC CUSTOMIZATION **/
+int itemsPerRow = 3;
+int rowWidth = 12 / itemsPerRow;
+JSONArray jsonResults = JSONFactoryUtil.createJSONArray();
+		 
+if(isInfiniteAbstractsGrid){	
+	if(results.size() > pageDelta){
+		List<AssetEntry> resultsAutoLoad = results.subList(pageDelta, results.size());	
+		results = results.subList(0, pageDelta);
+		
+		for(AssetEntry assetEntry : resultsAutoLoad){
+			String className = PortalUtil.getClassName(assetEntry.getClassNameId());
+			long classPK = assetEntry.getClassPK();
+	
+			AssetRendererFactory assetRendererFactory = AssetRendererFactoryRegistryUtil.getAssetRendererFactoryByClassName(className);
+			AssetRenderer assetRenderer = assetRendererFactory.getAssetRenderer(classPK);
+			
+			JSONObject assetEntryJSON = JSONFactoryUtil.createJSONObject();
+			assetEntryJSON.put("title", assetRenderer.getTitle(locale));
+			assetEntryJSON.put("thumbnailPath", assetRenderer.getThumbnailPath(liferayPortletRequest));
+			assetEntryJSON.put("viewURL", AssetPublisherHelperImpl.getAssetViewURL(liferayPortletRequest, liferayPortletResponse, assetEntry, viewInContext));
+			assetEntryJSON.put("summary", StringUtil.shorten(assetRenderer.getSummary(locale), abstractLength));
+			
+			jsonResults.put(assetEntryJSON);
+		}
+	}
+%>
+	<div class="infinite-grid-wrapper">
+<%
+}
+/** END RIVET LOGIC CUSTOMIZATION **/
+
+for (int assetEntryIndex = 0; assetEntryIndex < results.size(); assetEntryIndex++) {
+	AssetEntry assetEntry = (AssetEntry)results.get(assetEntryIndex);
+
+	String className = PortalUtil.getClassName(assetEntry.getClassNameId());
+	long classPK = assetEntry.getClassPK();
+
+	AssetRendererFactory assetRendererFactory = AssetRendererFactoryRegistryUtil.getAssetRendererFactoryByClassName(className);
+
+	if (assetRendererFactory == null) {
+		continue;
+	}
+
+	AssetRenderer assetRenderer = null;
+
+	try {
+		assetRenderer = assetRendererFactory.getAssetRenderer(classPK);
+	}
+	catch (Exception e) {
+		if (_log.isWarnEnabled()) {
+			_log.warn(e, e);
+		}
+	}
+
+	if ((assetRenderer == null) || !assetRenderer.isDisplayable()) {
+		continue;
+	}
+
+	String title = assetRenderer.getTitle(locale);
+
+	boolean show = true;
+	boolean print = false;
+
+	request.setAttribute("view.jsp-assetEntryIndex", new Integer(assetEntryIndex));
+
+	request.setAttribute("view.jsp-assetEntry", assetEntry);
+	request.setAttribute("view.jsp-assetRendererFactory", assetRendererFactory);
+	request.setAttribute("view.jsp-assetRenderer", assetRenderer);
+
+	request.setAttribute("view.jsp-title", title);
+
+	request.setAttribute("view.jsp-show", new Boolean(show));
+	request.setAttribute("view.jsp-print", new Boolean(print));
+
+	try {
+		/** START RIVET LOGIC CUSTOMIZATION **/
+		if(isInfiniteAbstractsGrid){
+			if(assetEntryIndex % itemsPerRow == 0){
+%>				
+	        	<div class="row-fluid">		        			
+<%
+			}
+%>
+					<div class="span<%=rowWidth%>">	
+<%
+		}
+		/** END RIVET LOGIC CUSTOMIZATION **/
+%>
+
+		<%@ include file="/html/portlet/asset_publisher/view_display.jspf" %>
+
+<%
+		/** START RIVET LOGIC CUSTOMIZATION **/
+		if(isInfiniteAbstractsGrid){
+%>
+					</div>
+<%			
+			if(assetEntryIndex % itemsPerRow == itemsPerRow - 1 || assetEntryIndex + 1 == results.size()){
+%>				
+				</div>
+<%				
+			}
+		}
+		/** END RIVET LOGIC CUSTOMIZATION **/
+	}
+	catch (Exception e) {
+		_log.error(e.getMessage());
+	}
+}
+%>
+
+<%-- START RIVET LOGIC CUSTOMIZATION --%>
+<%
+if(isInfiniteAbstractsGrid){
+%>
+	</div>	
+	
+	<script type="text/javascript" src="/html/portlet/asset_publisher/js/gallery-y-common-infinite-scroll.js" ></script>
+	<script type="text/javascript">		
+		var entriesIds = <%=jsonResults.toString()%>;
+	
+	    AUI().use('gallery-y-common-infinite-scroll', 'datatype-xml', 'transition', function (A) {
+	        /* js configuration */
+	        var itemTemplate = '<div class="span' + <%=rowWidth%> + '" style="opacity:0;"><div class="infinite-asset-abstract">' +
+	        						'<img style="width:225px; height:200px;" src="{thumbnailPath}" />' +
+	        						'<h4 class="asset-title">' + 
+		                       			'<a href="{viewURL}">{title}</a>' +
+		                       		'</h4>' + 
+		                       		'<br>' +
+			                       	'<div class="asset-summary">' +
+		                       			'{summary}' +
+		                       		'</div>' +
+	                           '</div></div>';
+	                             
+	        var offset = <%=pageDelta%>;
+	        var itemsPerRow = <%=itemsPerRow%>;
+	        
+	        /* infinite scroll instance */
+	        var infiniteScroll = new A.InfiniteScroll({
+	            requestCustomData: function (callback) {
+	            	var nextEntriesIds = entriesIds.splice(0, offset);
+	            	callback(nextEntriesIds);
+	            },
+	            container: A.one('.infinite-grid-wrapper'),
+	            itemTemplate: itemTemplate,
+	            initialize: true,
+	            offset: offset,
+	            itemsPerRow: itemsPerRow,
+	            itemsSelector: '.infinite-asset-abstract'
+	        });
+	        
+	        infiniteScroll.on('infinite-scroll:loading', function (e) {
+	            // do something while loading
+	        });
+	        infiniteScroll.on('infinite-scroll:finished', function (e) {
+	            // do something when finish loading
+	        });
+	        infiniteScroll.on('infinite-scroll:no-more-results', function (e) {
+	            // do something when there are no more assets to load
+	        });
+	    });
+	</script>
+<%
+}
+%>
+<%-- END RIVET LOGIC CUSTOMIZATION --%>
