@@ -1,0 +1,270 @@
+<%--
+/**
+ * Copyright (C) 2015 Rivet Logic Corporation. All rights reserved.
+ */
+--%>
+<%--
+/**
+ * Copyright (c) 2000-2013 Liferay, Inc. All rights reserved.
+ *
+ * The contents of this file are subject to the terms of the Liferay Enterprise
+ * Subscription License ("License"). You may not use this file except in
+ * compliance with the License. You can obtain a copy of the License by
+ * contacting Liferay, Inc. See the License for the specific language governing
+ * permissions and limitations under the License, including but not limited to
+ * distribution rights of the Software.
+ *
+ *
+ *
+ */
+--%>
+
+<%
+int end = searchContainer.getEnd();
+int start = searchContainer.getStart();
+		 
+/** START RIVET LOGIC CUSTOMIZATION **/
+boolean isInfiniteAbstractsGrid = "infinite-abstracts-grid".equals(displayStyle);			
+if(isInfiniteAbstractsGrid){
+	// If Asset Publisher is on Infinite Abstract Grid view, 
+	// we need to get more contents to auto-load them on scroll.
+	end = 1000;
+}
+/** END RIVET LOGIC CUSTOMIZATION **/		 
+
+if (!portletName.equals(PortletKeys.RELATED_ASSETS)) {
+	assetEntryQuery.setGroupIds(groupIds);
+}
+
+assetEntryQuery.setExcludeZeroViewCount(excludeZeroViewCount);
+assetEntryQuery.setOrderByCol1(orderByColumn1);
+assetEntryQuery.setOrderByCol2(orderByColumn2);
+assetEntryQuery.setOrderByType1(orderByType1);
+assetEntryQuery.setOrderByType2(orderByType2);
+
+List<AssetEntry> results = new ArrayList<AssetEntry>();
+int total = 0;
+
+if (!portletName.equals(PortletKeys.RELATED_ASSETS) || (assetEntryQuery.getLinkedAssetEntryId() > 0)) {
+	if (assetVocabularyId > 0) {
+		AssetVocabulary assetVocabulary = AssetVocabularyLocalServiceUtil.getVocabulary(assetVocabularyId);
+
+		List<AssetCategory> assetCategories = AssetCategoryLocalServiceUtil.getVocabularyRootCategories(assetVocabulary.getVocabularyId(), QueryUtil.ALL_POS, QueryUtil.ALL_POS, null);
+
+		assetEntryQuery.setClassNameIds(classNameIds);
+
+		for (AssetCategory assetCategory : assetCategories) {
+			assetCategory = assetCategory.toEscapedModel();
+
+			long[] oldAllCategoryIds = assetEntryQuery.getAllCategoryIds();
+
+			long[] newAllAssetCategoryIds = ArrayUtil.append(oldAllCategoryIds, assetCategory.getCategoryId());
+
+			assetEntryQuery.setAllCategoryIds(newAllAssetCategoryIds);
+
+			int groupTotal = 0;
+
+			if (PropsValues.ASSET_PUBLISHER_SEARCH_WITH_INDEX && (assetEntryQuery.getLinkedAssetEntryId() == 0) && !portletName.equals(PortletKeys.HIGHEST_RATED_ASSETS) && !portletName.equals(PortletKeys.MOST_VIEWED_ASSETS)) {
+				Hits hits = AssetUtil.search(request, assetEntryQuery, start, end);
+
+				groupTotal = hits.getLength();
+
+				total += groupTotal;
+
+				results = AssetUtil.getAssetEntries(hits);
+			}
+			else {
+				groupTotal = AssetEntryServiceUtil.getEntriesCount(assetEntryQuery);
+
+				total += groupTotal;
+
+				assetEntryQuery.setEnd(end);
+				assetEntryQuery.setStart(start);
+
+				results = AssetEntryServiceUtil.getEntries(assetEntryQuery);
+			}
+
+			if (!results.isEmpty() && (start < groupTotal)) {
+				searchContainer.setResults(results);
+
+				request.setAttribute("view.jsp-results", results);
+%>
+
+				<h3 class="asset-entries-group-label"><%= assetCategory.getTitle(locale) %></h3>
+
+				<c:choose>
+					<c:when test="<%= portletDisplayDDMTemplateId > 0 %>">
+						<%= PortletDisplayTemplateUtil.renderDDMTemplate(pageContext, portletDisplayDDMTemplateId, results, contextObjects) %>
+					</c:when>
+					<c:otherwise>
+						<%@ include file="/html/portlet/asset_publisher/view_dynamic_list_asset.jspf" %>
+					</c:otherwise>
+				</c:choose>
+
+<%
+			}
+
+			if (groupTotal > 0) {
+				if ((end > 0) && (end > groupTotal)) {
+					end -= groupTotal;
+				}
+				else {
+					end = 0;
+				}
+
+				if ((start > 0) && (start > groupTotal)) {
+					start -= groupTotal;
+				}
+				else {
+					start = 0;
+				}
+			}
+
+			assetEntryQuery.setAllCategoryIds(oldAllCategoryIds);
+			assetEntryQuery.setEnd(QueryUtil.ALL_POS);
+			assetEntryQuery.setStart(QueryUtil.ALL_POS);
+		}
+
+		searchContainer.setTotal(total);
+	}
+	else if (!groupByClass) {
+		assetEntryQuery.setClassNameIds(classNameIds);
+
+		if (PropsValues.ASSET_PUBLISHER_SEARCH_WITH_INDEX && (assetEntryQuery.getLinkedAssetEntryId() == 0) && !portletName.equals(PortletKeys.HIGHEST_RATED_ASSETS) && !portletName.equals(PortletKeys.MOST_VIEWED_ASSETS)) {
+			Hits hits = AssetUtil.search(request, assetEntryQuery, start, end);
+
+			total = hits.getLength();
+
+			searchContainer.setTotal(total);
+
+			results = AssetUtil.getAssetEntries(hits);
+		}
+		else {
+			total = AssetEntryServiceUtil.getEntriesCount(assetEntryQuery);
+
+			searchContainer.setTotal(total);
+
+			assetEntryQuery.setEnd(end);
+			assetEntryQuery.setStart(start);
+
+			results = AssetEntryServiceUtil.getEntries(assetEntryQuery);
+		}
+
+		searchContainer.setResults(results);
+
+		request.setAttribute("view.jsp-results", results);
+%>
+
+		<c:choose>
+			<c:when test="<%= portletDisplayDDMTemplateId > 0 %>">
+				<%= PortletDisplayTemplateUtil.renderDDMTemplate(pageContext, portletDisplayDDMTemplateId, results, contextObjects) %>
+			</c:when>
+			<c:otherwise>
+				<%@ include file="/html/portlet/asset_publisher/view_dynamic_list_asset.jspf" %>
+			</c:otherwise>
+		</c:choose>
+
+<%
+	}
+	else {
+		for (long classNameId : classNameIds) {
+			long[] oldGroupClassNameIds = assetEntryQuery.getClassNameIds();
+
+			long[] groupClassNameIds = {classNameId};
+
+			assetEntryQuery.setClassNameIds(groupClassNameIds);
+
+			String groupClassName = PortalUtil.getClassName(classNameId);
+
+			AssetRendererFactory groupAssetRendererFactory = AssetRendererFactoryRegistryUtil.getAssetRendererFactoryByClassName(groupClassName);
+
+			int groupTotal = 0;
+
+			if (PropsValues.ASSET_PUBLISHER_SEARCH_WITH_INDEX && (assetEntryQuery.getLinkedAssetEntryId() == 0) && !portletName.equals(PortletKeys.HIGHEST_RATED_ASSETS) && !portletName.equals(PortletKeys.MOST_VIEWED_ASSETS)) {
+				Hits hits = AssetUtil.search(request, assetEntryQuery, start, end);
+
+				groupTotal = hits.getLength();
+
+				total += groupTotal;
+
+				results = AssetUtil.getAssetEntries(hits);
+			}
+			else {
+				groupTotal = AssetEntryServiceUtil.getEntriesCount(assetEntryQuery);
+
+				total += groupTotal;
+
+				assetEntryQuery.setEnd(end);
+				assetEntryQuery.setStart(start);
+
+				results = AssetEntryServiceUtil.getEntries(assetEntryQuery);
+			}
+
+			searchContainer.setResults(results);
+
+			request.setAttribute("view.jsp-results", results);
+
+			if (!results.isEmpty() && (start < groupTotal)) {
+%>
+
+				<h3 class="asset-entries-group-label"><%= ResourceActionsUtil.getModelResource(locale, groupAssetRendererFactory.getClassName()) %></h3>
+
+				<c:choose>
+					<c:when test="<%= portletDisplayDDMTemplateId > 0 %>">
+						<%= PortletDisplayTemplateUtil.renderDDMTemplate(pageContext, portletDisplayDDMTemplateId, results, contextObjects) %>
+					</c:when>
+					<c:otherwise>
+						<%@ include file="/html/portlet/asset_publisher/view_dynamic_list_asset.jspf" %>
+					</c:otherwise>
+				</c:choose>
+
+<%
+			}
+
+			if (!portletName.equals(PortletKeys.RECENT_CONTENT)) {
+				if (groupTotal > 0) {
+					if ((end > 0) && (end > groupTotal)) {
+						end -= groupTotal;
+					}
+					else {
+						end = 0;
+					}
+
+					if ((start > 0) && (start > groupTotal)) {
+						start -= groupTotal;
+					}
+					else {
+						start = 0;
+					}
+				}
+
+				assetEntryQuery.setClassNameIds(oldGroupClassNameIds);
+				assetEntryQuery.setEnd(QueryUtil.ALL_POS);
+				assetEntryQuery.setStart(QueryUtil.ALL_POS);
+			}
+		}
+
+		searchContainer.setTotal(total);
+	}
+}
+
+if ((total == 0) && (portletDisplayDDMTemplateId == 0)) {
+	if (!showPortletWithNoResults && !hasAddPortletURLs && !((assetCategoryId > 0) || Validator.isNotNull(assetTagName))) {
+		renderRequest.setAttribute(WebKeys.PORTLET_CONFIGURATOR_VISIBILITY, Boolean.TRUE);
+	}
+%>
+
+	<div class="alert alert-info">
+		<c:choose>
+			<c:when test="<%= !portletName.equals(PortletKeys.RELATED_ASSETS) %>">
+				<liferay-ui:message key="there-are-no-results" />
+			</c:when>
+			<c:otherwise>
+				<liferay-ui:message key="there-are-no-related-assets" />
+			</c:otherwise>
+		</c:choose>
+	</div>
+
+<%
+}
+%>
